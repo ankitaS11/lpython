@@ -90,6 +90,35 @@ std::string Diagnostics::render(const std::string &input,
     return out;
 }
 
+std::vector<LFortran::diag::lsp_highlight> Diagnostics::lsp_diagnostics(const std::string &input,
+        const LocationManager &lm, const CompilerOptions &compiler_options) {
+    std::vector<LFortran::diag::lsp_highlight> diag_lists;
+    lsp_highlight h;
+    for (auto &d : this->diagnostics) {
+        if (compiler_options.no_warnings && d.level != Level::Error) {
+            continue;
+        }
+        h.message = d.message;
+        h.severity = d.stage;
+        for (auto label : d.labels) {
+            for (auto span : label.spans) {
+                uint32_t first_line;
+                uint32_t first_column;
+                uint32_t last_line;
+                uint32_t last_column;
+                lm.pos_to_linecol(span.loc.first, first_line, first_column);
+                lm.pos_to_linecol(span.loc.last, last_line, last_column);
+                h.first_column = first_column;
+                h.last_column = last_column;
+                h.first_line = first_line;
+                h.last_line = last_line;
+                diag_lists.push_back(h);
+            }
+        }
+    }
+    return diag_lists;
+}
+
 std::string get_line(std::string str, int n)
 {
     std::string line;

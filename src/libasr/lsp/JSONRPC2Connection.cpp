@@ -81,6 +81,7 @@ void JSONRPC2Connection::_send(rapidjson::Document& body) {
   int content_length = body_str.size();
   std::string response = "Content-Length: " + std::to_string(content_length) + "\r\n" +
     "Content-Type: application/vscode-jsonrpc; charset=utf8\r\n\r\n";
+  this->log.log(body_str);
   std::cout << response;
   std::cout << body_str;
 }
@@ -112,12 +113,8 @@ void JSONRPC2Connection::send_notification(std::string method, rapidjson::Docume
   body.SetObject();
   body.AddMember("jsonrpc", rapidjson::Value().SetString("2.0", allocator), allocator);
   body.AddMember("method", rapidjson::Value().SetString(method.c_str(), allocator), allocator);
-  body.AddMember("params", params, allocator);
-  rapidjson::StringBuffer buffer;
-  buffer.Clear();
-  rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
-  body.Accept(writer);
-  std::string str_body(buffer.GetString());
+  body.AddMember("params", params, allocator); 
+  this->log.log("Body: " + json_to_string(body));
   this->_send(body);
 }
 

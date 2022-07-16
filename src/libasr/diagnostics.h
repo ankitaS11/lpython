@@ -25,6 +25,15 @@ struct Span {
     Span(const Location &loc) : loc{loc} {}
 };
 
+struct lsp_highlight {
+    std::string message;
+    uint32_t first_line;
+    uint32_t last_line;
+    uint32_t first_column;
+    uint32_t last_column;
+    uint32_t severity;
+};
+
 /*
  * Labels can be primary or secondary.
  *
@@ -114,6 +123,9 @@ struct Diagnostics {
     std::vector<Diagnostic> diagnostics;
 
     std::string render(const std::string &input,
+            const LocationManager &lm, const CompilerOptions &compiler_options);
+    
+    std::vector<lsp_highlight> lsp_diagnostics(const std::string &input,
             const LocationManager &lm, const CompilerOptions &compiler_options);
 
     // Returns true iff diagnostics contains at least one error message

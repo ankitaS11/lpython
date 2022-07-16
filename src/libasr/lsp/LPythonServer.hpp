@@ -9,15 +9,20 @@
 #include <libasr/pass/pass_manager.h>
 #include <libasr/utils.h>
 #include <lpython/semantics/python_ast_to_asr.h>
+#include <libasr/diagnostics.h>
 
 #include "JSONRPC2Connection.hpp"
 #include "MessageHandler.hpp"
+#include "utilities.hpp"
 
 class LPythonServer {
+    private:
+        Logger log;
     public:
         bool running = false;
         JSONRPC2Connection* conn;
         LPythonServer() {
+            this->log = Logger();
             this->running = true;
             this->conn = new JSONRPC2Connection();
         }

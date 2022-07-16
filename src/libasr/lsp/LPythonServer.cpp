@@ -7,12 +7,15 @@
 #include "LPythonServer.hpp"
 #include "JSONRPC2Connection.hpp"
 #include "MessageHandler.hpp"
+#include "utilities.hpp"
 
 struct handle_functions
 {
+  Logger log;
   JSONRPC2Connection* conn;
 
   handle_functions() {
+    this->log = Logger();
     this->conn = new JSONRPC2Connection();
   }
 
@@ -26,51 +29,6 @@ struct handle_functions
     server_capabilities.AddMember("documentSymbolProvider", rapidjson::Value().SetBool(true), allocator);
     capabilities.AddMember("capabilities", server_capabilities, allocator);
     return capabilities;
-  }
-
-  void serve_onSave(rapidjson::Document &request) {
-        std::string uri = request["params"]["textDocument"]["uri"].GetString();
-        int start_line = 2;
-        int start_column = 0;
-        int end_line = 3;
-        int end_column = 10;
-        std::string msg = "lpyth";
-
-        rapidjson::Document range_obj(rapidjson::kObjectType);
-        rapidjson::Document::AllocatorType &allocator = range_obj.GetAllocator(); 
-        range_obj.SetObject();
-
-        rapidjson::Document start_detail(rapidjson::kObjectType); 
-        start_detail.SetObject();
-        start_detail.AddMember("line", rapidjson::Value().SetInt(start_line), allocator);
-        start_detail.AddMember("character", rapidjson::Value().SetInt(start_column), allocator);
-        range_obj.AddMember("start", start_detail, allocator);
-
-        rapidjson::Document end_detail(rapidjson::kObjectType);
-        end_detail.SetObject();
-        end_detail.AddMember("line", rapidjson::Value().SetInt(end_line), allocator);
-        end_detail.AddMember("character", rapidjson::Value().SetInt(end_column), allocator);
-        range_obj.AddMember("end", end_detail, allocator);
-
-        rapidjson::Document diag_results(rapidjson::kArrayType);
-        diag_results.SetArray();
-
-        rapidjson::Document diag_capture(rapidjson::kObjectType);
-        diag_capture.AddMember("source", rapidjson::Value().SetString("lsp", allocator), allocator);
-        diag_capture.AddMember("range", range_obj, allocator);
-        diag_capture.AddMember("message", rapidjson::Value().SetString(msg.c_str(), allocator), allocator);
-        diag_capture.AddMember("severity", rapidjson::Value().SetInt(2), allocator);
-        diag_results.PushBack(diag_capture, allocator);
-
-        rapidjson::Document message_send(rapidjson::kObjectType);
-        message_send.SetObject();
-        message_send.AddMember("uri", rapidjson::Value().SetString(uri.c_str(), allocator), allocator);
-        message_send.AddMember("diagnostics", diag_results, allocator);
-
-        this->conn->send_notification(
-          "textDocument/publishDiagnostics",
-          message_send
-        );
   }
 
   std::string getPath(std::string raw_uri)  {
@@ -103,6 +61,64 @@ struct handle_functions
     return ret;
   }
 
+  void serve_onSave(rapidjson::Document &request) {
+    this->log.log("Inside serve_onSave() \n");
+      std::string uri = request["params"]["textDocument"]["uri"].GetString();
+      std::string path = getPath(uri);
+
+      using LFortran::CompilerOptions;
+      CompilerOptions compiler_options;
+      std::string runtime_library_dir = LFortran::get_runtime_library_dir();
+      this->log.log("Calling get_Diagnostics()\n");
+      std::vector<LFortran::diag::lsp_highlight> diag_lists = LFortran::LPython::get_Diagnostics(path, runtime_library_dir, compiler_options);
+        
+      rapidjson::Document range_obj(rapidjson::kObjectType);
+      rapidjson::Document start_detail(rapidjson::kObjectType); 
+      rapidjson::Document end_detail(rapidjson::kObjectType);
+      rapidjson::Document diag_results(rapidjson::kArrayType);
+      rapidjson::Document diag_capture(rapidjson::kObjectType);
+      rapidjson::Document message_send(rapidjson::kObjectType);
+
+      for (auto diag : diag_lists) {
+          uint32_t start_line = diag.first_line;
+          uint32_t start_column = diag.first_column;
+          uint32_t end_line = diag.last_line;
+          uint32_t end_column = diag.last_column;
+          uint32_t severity = diag.severity;
+          std::string msg = diag.message;
+
+          range_obj.SetObject();
+          rapidjson::Document::AllocatorType &allocator = range_obj.GetAllocator(); 
+
+          start_detail.SetObject();
+          start_detail.AddMember("line", rapidjson::Value().SetInt(start_line), allocator);
+          start_detail.AddMember("character", rapidjson::Value().SetInt(start_column), allocator);
+          range_obj.AddMember("start", start_detail, allocator);
+
+          end_detail.SetObject();
+          end_detail.AddMember("line", rapidjson::Value().SetInt(end_line), allocator);
+          end_detail.AddMember("character", rapidjson::Value().SetInt(end_column), allocator);
+          range_obj.AddMember("end", end_detail, allocator);
+
+          diag_results.SetArray();
+
+          diag_capture.AddMember("source", rapidjson::Value().SetString("lpyth", allocator), allocator);
+          diag_capture.AddMember("range", range_obj, allocator);
+          diag_capture.AddMember("message", rapidjson::Value().SetString(msg.c_str(), allocator), allocator);
+          diag_capture.AddMember("severity", rapidjson::Value().SetInt(severity), allocator);
+          diag_results.PushBack(diag_capture, allocator);
+
+          message_send.SetObject();
+          message_send.AddMember("uri", rapidjson::Value().SetString(uri.c_str(), allocator), allocator);
+          message_send.AddMember("diagnostics", diag_results, allocator);
+      
+        }
+      std::string message_json = this->conn->json_to_string(message_send);
+      this->log.log("Message json: " + message_json);
+      this->conn->send_notification("textDocument/publishDiagnostics", message_send);
+      this->log.log("Send Notification Complete");
+  }
+
   void serve_document_symbol(rapidjson::Document &request, JSONRPC2Connection& obj, int rid) {
     std::string uri = request["params"]["textDocument"]["uri"].GetString();
     std::string path = getPath(uri);
@@ -111,7 +127,7 @@ struct handle_functions
     LCompilers::PassManager lpython_pass_manager;
     std::string runtime_library_dir = LFortran::get_runtime_library_dir();
 
-    std::vector<LFortran::LPython::lsp_locations> symbol_lists = LFortran::LPython::get_SymbolLists(path, 
+    std::vector<LFortran::LPython::lsp_symbols> symbol_lists = LFortran::LPython::get_SymbolLists(path, 
                           lpython_pass_manager, runtime_library_dir, compiler_options);
 
     rapidjson::Document test_output(rapidjson::kArrayType);

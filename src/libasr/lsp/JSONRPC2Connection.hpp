@@ -5,9 +5,15 @@
 #include <string>
 #include <rapidjson/document.h>
 
+#include "utilities.hpp"
+
 class JSONRPC2Connection {
+  private:
+    Logger log;
   public:
-    JSONRPC2Connection() {}
+    JSONRPC2Connection() {
+      this->log = Logger();
+    }
     rapidjson::Document read_message();
     int _read_header_content_length(std::string);
     std::string read(int);
