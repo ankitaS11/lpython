@@ -3843,10 +3843,10 @@ std::string get_parent_dir(const std::string &path) {
     return path.substr(0,idx);
 }
 
-std::vector<lsp_locations> symbol_information(LFortran::ASR::TranslationUnit_t *x,
+std::vector<lsp_symbols> symbol_information(LFortran::ASR::TranslationUnit_t *x,
                 const LFortran::LocationManager &lm) {
-    std::vector<lsp_locations> symbol_lists;
-    lsp_locations loc;
+    std::vector<lsp_symbols> symbol_lists;
+    lsp_symbols loc;
     for (auto &a : x->m_global_scope->get_scope()) {
         std::string symbol_name = a.first;
         uint32_t first_line;
@@ -3865,7 +3865,7 @@ std::vector<lsp_locations> symbol_information(LFortran::ASR::TranslationUnit_t *
  return symbol_lists;
 }
  
-std::vector<lsp_locations> get_symbol_locations(Allocator &al, LFortran::LPython::AST::ast_t &ast,
+std::vector<lsp_symbols> get_symbol_locations(Allocator &al, LFortran::LPython::AST::ast_t &ast,
                  LFortran::diag::Diagnostics &diagnostics, bool main_module,
                  std::string file_path, const LFortran::LocationManager &lm) {
     std::map<int, LFortran::ASR::symbol_t *> ast_overload;
