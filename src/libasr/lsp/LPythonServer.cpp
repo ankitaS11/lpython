@@ -84,7 +84,7 @@ struct handle_functions
           uint32_t start_column = diag.first_column;
           uint32_t end_line = diag.last_line;
           uint32_t end_column = diag.last_column;
-          uint32_t severity = diag.severity;
+          uint32_t severity = 2;
           std::string msg = diag.message;
 
           range_obj.SetObject();
