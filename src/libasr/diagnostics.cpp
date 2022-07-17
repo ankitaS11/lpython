@@ -99,7 +99,7 @@ std::vector<LFortran::diag::lsp_highlight> Diagnostics::lsp_diagnostics(const st
             continue;
         }
         h.message = d.message;
-        h.severity = d.stage;
+        h.severity = d.level;
         for (auto label : d.labels) {
             for (auto span : label.spans) {
                 uint32_t first_line;
