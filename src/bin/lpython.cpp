@@ -27,6 +27,11 @@
 #include <lpython/parser/tokenizer.h>
 #include <lpython/parser/parser.h>
 
+#include <rapidjson/document.h>
+#include <rapidjson/writer.h>
+#include <rapidjson/stringbuffer.h>
+
+
 #ifdef HAVE_LFORTRAN_RAPIDJSON
     #include <libasr/lsp/LPythonServer.hpp>
 #endif
@@ -256,6 +261,53 @@ int emit_c(const std::string &infile,
     std::cout << res.result;
     return 0;
 }
+
+int get_errors (const std::string &infile,
+    const std::string &runtime_library_dir,
+    CompilerOptions &compiler_options) {
+
+    rapidjson::Document range_obj(rapidjson::kObjectType);
+    rapidjson::Document start_detail(rapidjson::kObjectType); 
+    rapidjson::Document end_detail(rapidjson::kObjectType);
+    rapidjson::Document diag_results(rapidjson::kArrayType);
+    rapidjson::Document diag_capture(rapidjson::kObjectType);
+    rapidjson::Document message_send(rapidjson::kObjectType);
+    
+    range_obj.SetObject();
+    rapidjson::Document::AllocatorType &allocator = range_obj.GetAllocator(); 
+
+    start_detail.SetObject();
+    start_detail.AddMember("line", rapidjson::Value().SetInt(4), allocator);
+    start_detail.AddMember("character", rapidjson::Value().SetInt(0), allocator);
+    range_obj.AddMember("start", start_detail, allocator);
+
+    end_detail.SetObject();
+    end_detail.AddMember("line", rapidjson::Value().SetInt(7), allocator);
+    end_detail.AddMember("character", rapidjson::Value().SetInt(8), allocator);
+    range_obj.AddMember("end", end_detail, allocator);
+
+    diag_results.SetArray();
+
+    diag_capture.AddMember("source", rapidjson::Value().SetString("lpyth", allocator), allocator);
+    diag_capture.AddMember("range", range_obj, allocator);
+    diag_capture.AddMember("message", rapidjson::Value().SetString("LpYTHON", allocator), allocator);
+    diag_capture.AddMember("severity", rapidjson::Value().SetInt(1), allocator);
+    diag_results.PushBack(diag_capture, allocator);
+
+    message_send.SetObject();
+    message_send.AddMember("uri", rapidjson::Value().SetString("file:///home/ankita/check.py", allocator), allocator);
+    message_send.AddMember("diagnostics", diag_results, allocator);
+
+    rapidjson::StringBuffer buffer;
+    buffer.Clear();
+    rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+    message_send.Accept(writer);
+    std::string resp_str( buffer.GetString() );
+    
+    std::cout << resp_str;
+
+        return 0;
+    }
 
 #ifdef HAVE_LFORTRAN_LLVM
 
@@ -584,6 +636,7 @@ int main(int argc, char *argv[])
         bool show_asr = false;
         bool show_cpp = false;
         bool show_c = false;
+        bool show_errors = false;
         bool with_intrinsic_modules = false;
         std::string arg_pass;
         bool arg_no_color = false;
@@ -661,6 +714,9 @@ int main(int argc, char *argv[])
         app.add_option("--target", compiler_options.target, "Generate code for the given target")->capture_default_str();
         app.add_flag("--print-targets", print_targets, "Print the registered targets");
         app.add_flag("--get-rtlib-header-dir", print_rtlib_header_dir, "Print the path to the runtime library header file");
+
+        // LSP options
+        app.add_flag("--show-errors", show_errors, "Show errors when LSP is running on the background");
 
         if( compiler_options.fast ) {
             lpython_pass_manager.use_optimization_passes();
@@ -835,6 +891,9 @@ int main(int argc, char *argv[])
         }
         if (show_c) {
             return emit_c(arg_file, runtime_library_dir, compiler_options);
+        }
+        if (show_errors) {
+            return get_errors(arg_lsp_filename, runtime_library_dir, compiler_options);
         }
         lpython_pass_manager.use_default_passes();
         if (show_llvm) {
