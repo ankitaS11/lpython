@@ -258,6 +258,7 @@ async function validateTextDocument(textDocument: TextDocument): Promise<void> {
 			message: obj.diagnostics[0].message,
 			source: "lpyth"
 		};
+		diagnostics.push(diagnostic);
 	}
 	console.log(diagnostics);
 
