@@ -942,7 +942,6 @@ int main(int argc, char *argv[])
             return emit_c(arg_file, runtime_library_dir, compiler_options);
         }
         if (show_errors) {
-            std::cout << "Calling show errors";
             return get_errors(arg_file, runtime_library_dir, compiler_options);
         }
         lpython_pass_manager.use_default_passes();
